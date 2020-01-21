@@ -1,0 +1,62 @@
+---
+title: "NACA Stan fitting"
+output: html_notebook
+---
+
+```{r libraries, echo=T, results='hide', message=F, warning=F}
+library(rstan)
+library(gdata)
+library(bayesplot)
+```
+
+
+First thing to do is to set priors for parameters.
+```{r priors}
+prior_logkChemInt <- -3
+priorSD_logkChemInt <- 2
+prior_logkBleachInt <- -4
+priorSD_logkBleachInt <- 2
+prior_mChem <- -0.02
+priorSD_mChem <- 1
+prior_mBleach <- 0
+priorSD_mBleach <- 1
+prior_ext <- 0.02
+priorSD_ext <- 0.01
+prior_delay <- 1
+priorSD_delay <- 1
+```
+
+Next, specify experimental conditions. These are in units of micromolar:
+```{r conditions}
+initCys <- 50
+initDTP <- 100
+```
+
+Later we will fit data and so will have meaningful values for these data values. For now, we are just simulating data from the priors, so we will just set them to junk data
+```{r nullData}
+N <- 1;
+time <- c(0);
+gdn <- c(0);
+absorbance <- c(0);
+numTrials <- 1;
+trialStarts <- c(1);
+```
+
+Now we have to format all this data for stan.
+```{r formatStanSim}
+stan_data <-list(prior_logkChemInt=prior_logkChemInt, priorSD_logkChemInt=priorSD_logkChemInt, prior_logkBleachInt=prior_logkBleachInt, priorSD_logkBleachInt=priorSD_logkBleachInt, prior_mChem=prior_mChem, priorSD_mChem=priorSD_mChem, prior_mBleach=prior_mBleach, priorSD_mBleach=priorSD_mBleach, prior_ext=prior_ext,priorSD_ext=priorSD_ext, prior_delay=prior_delay, priorSD_delay=priorSD_delay, initCys=initCys, initDTP=initDTP, N=N, time=time, gdn=gdn, absorbance=absorbance, numTrials=numTrials, trialStarts=trialStarts)
+```
+
+
+Now we will simulate data from our priors using the stan file.
+```{r stanSimulate}
+stan_model<- "nacaModel.stan"
+stanc(file = stan_model, verbose = TRUE)
+sim_data <- stan(file = stan_model,
+             data = stan_data,
+             chains = 1, iter = 100,
+             algorithm = "Fixed_param")
+```
+
+
+
