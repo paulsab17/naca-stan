@@ -1,5 +1,6 @@
 //Stan model for NACA system
 
+
 functions{
   real[] NACAModelODE(real t,real[] y,real[] parms,real[] rdata,int[] idata){
     //y is the current state of the system. It is broken up into different vars
@@ -81,17 +82,19 @@ functions{
 
 }
 
+
 data{
   int < lower = 1 > N; // number of data points
-  vector[N] <lower=0> time; // Predictor
-  vector[N] <lower=0> gdn; // Predictor
-  vector[N] <lower=0> absorbance; // Outcome
+  vector<lower=0>[N] time; // Predictor
+  vector<lower=0>[N] gdn; // Predictor
+  vector<lower=0>[N] absorbance; // Outcome
+
 
   int <lower=0> numTrials; //number of individual trials
-  int trialStarts[numTrials]; //the N each trial starts at
+  int trialStarts[numTrials]; //the N each trial starts at, plus the final N+1
 
-  real <lower=0> initCys;
-  real <lower=0> initDTP;
+  real < lower = 0 > initCys;
+  real < lower = 0 > initDTP;
 
   real prior_logkChemInt;
   real priorSD_logkChemInt;
@@ -107,33 +110,36 @@ data{
   real priorSD_delay;
 }
 
+
 transformed data {
   real rdata[0];
   int idata[0];
 }
+
 
 parameters{
   real logkChemInt; //base 10 log of kChemInt
   real logkBleachInt; //base 10 log of kBleach
   real mChem;
   real mBleach;
-  real <lower=0> ext; //extinction coefficient
+  real < lower = 0 > ext; //extinction coefficient
   real delay;
-  real <lower=0> sigma; //error SD
+  real < lower = 0 > sigma; //error SD
 }
 
 
 transformed parameters {
-  vector[0] predictedAbs; //predicted absorbance for each data point
+  vector[N] predictedAbs; //predicted absorbance for each data point
   for(i in 1:numTrials){
     int start = trialStarts[numTrials];
-    int last;
-    if(i<numTrials) last = trialStarts[numTrials+1]-1 else last = N;
+    int last = trialStarts[numTrials+1]-1;
     int numTimes = last - start + 1;
 
     matrix[numTimes,3] concs; //concentrations of each point
+
     concs = NACAModelVals(time[start:last],logkChemInt,logkBleachInt,mChem,
       mBleach,delay,rdata,idata,initCys,initDTP,gdn[start]);
+
     vector[numTimes] temp;
     temp = concs[,3]; //just extract concentration of TP
     temp = temp * ext; //convert to the absorbances
@@ -141,6 +147,7 @@ transformed parameters {
   }
   int checkSize = size(predictedAbs);
 }
+
 
 
 model {
@@ -152,8 +159,10 @@ model {
   delay ~ normal(prior_delay,priorSD_delay);
   sigma ~ cauchy(0,1);
 
-  absorbance ~ normal(predictedAbs,sigma);
+  absorbance ~ normal(time * ext,sigma);
 }
+
+
 generated quantities {
   real tMax = 1800;
   int nDat = 100;
@@ -185,4 +194,3 @@ generated quantities {
     pred_gdn_6[i,1] = times[i];
     pred_gdn_6[i,2] = temp[i,3];
   }
-}

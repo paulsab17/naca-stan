@@ -1,4 +1,4 @@
-//Stan model for NACA system
+//Stan model to test what's going wrong
 
 functions{
   real[] NACAModelODE(real t,real[] y,real[] parms,real[] rdata,int[] idata){
@@ -29,22 +29,33 @@ functions{
     parms[1] = kChemEff;
     parms[2] = kBleachEff;
 
-    //create array of state values initialized all to 0
-    y = rep_array(0,3);
+    //real temp[size(t),1];
 
-    if(t0=t[1]){ //t is an array but only t[1] is meaningful, current time
-      x = init;
-    }else{
-      temp = integrate_ode_rk45(NACAModelODE, init, t0,
-        t, parms, rdata, idata);
-      x = to_array_1d(temp);
-    }
+    //temp = integrate_ode_rk45(NACAModelODE, init, t0,
+    //  t, parms, rdata, idata);
+
+
+    //create array of state values
+    real x[3];
+    x[1] = 1;
+    x[2] = 2;
+    x[3] = 3;
+
+    // if(t0 == t[1]){ //t is an array but only t[1] is meaningful, current time
+    //   x = init;
+    // }else{
+    //   temp = integrate_ode_rk45(NACAModelODE, init, t0,
+    //     t, parms, rdata, idata);
+    //   x = to_array_1d(temp);
+    // }
+
 
     //returns the value of [NACA],[DTP],and [TP]
     return x;
   }
 
-  matrix NACAModelVals(real[] time,real logkChemInt,
+
+/*  matrix NACAModelVals(real[] time,real logkChemInt,
       real logkBleachInt,real mChem,real mBleach,real delay,
       real[] rdata,int[] idata,real initCys,real initDTP,real gdn){
 
@@ -75,20 +86,22 @@ functions{
     }
     return result; //return value for each species at each time point
   }
-
+*/
 }
 
 data{
   int < lower = 1 > N; // number of data points
-  vector[N] <lower=0> time; // Predictor
-  vector[N] <lower=0> gdn; // Predictor
-  vector[N] <lower=0> absorbance; // Outcome
+  vector<lower=0>[N] time; // Predictor
+  vector<lower=0>[N] gdn; // Predictor
+  vector<lower=0>[N] absorbance; // Outcome
+
 
   int <lower=0> numTrials; //number of individual trials
   int trialStarts[numTrials]; //the N each trial starts at
 
-  real <lower=0> initCys;
-  real <lower=0> initDTP;
+
+  real < lower = 0 > initCys;
+  real < lower = 0 > initDTP;
 
   real prior_logkChemInt;
   real priorSD_logkChemInt;
@@ -104,39 +117,45 @@ data{
   real priorSD_delay;
 }
 
+transformed data {
+  real rdata[0];
+  int idata[0];
+}
+
 parameters{
   real logkChemInt; //base 10 log of kChemInt
   real logkBleachInt; //base 10 log of kBleach
   real mChem;
   real mBleach;
-  real <lower=0> ext; //extinction coefficient
+  real < lower = 0 > ext; //extinction coefficient
   real delay;
-  real <lower=0> sigma; //error SD
+  real < lower = 0 > sigma; //error SD
 }
-
 
 transformed parameters {
-  vector[0] predictedAbs; //predicted absorbance for each data point
-  for(i in 1:numTrials){
-    int start = trialStarts[numTrials];
-    int last;
-    if(i<numTrials) last = trialStarts[numTrials+1]-1 else last = N;
+  vector[N] predictedAbs; //predicted absorbance for each data point
+  for(i in 1:numTrials-1){
+    int start = trialStarts[i];
+    int last = trialStarts[i+1];
     int numTimes = last - start + 1;
 
-    real rdata = NULL;
-    real idata = NULL;
-
     matrix[numTimes,3] concs; //concentrations of each point
+
+    for(j in 1:numTimes){
+      concs[j,1] = 0;
+      concs[j,2] = 0;
+      concs[j,3] = 0;
+    }
+    /*
     concs = NACAModelVals(time[start:last],logkChemInt,logkBleachInt,mChem,
       mBleach,delay,rdata,idata,initCys,initDTP,gdn[start]);
-    vector[numTimes] temp;
-    temp = concs[,3]; //just extract concentration of TP
-    temp = temp*ext; //convert to the absorbances
-    predictedAbs = append_row(predictedAbs,temp);
-  }
-  int checkSize = size(predictedAbs);
-}
+      */
 
+    for(k in 1:numTimes){
+      predictedAbs[k+start-1] = concs[k,3];
+    }
+  }
+}
 
 model {
   logkChemInt ~ normal(prior_logkChemInt,priorSD_logkChemInt);
@@ -148,41 +167,7 @@ model {
   sigma ~ cauchy(0,1);
 
   absorbance ~ normal(predictedAbs,sigma);
-
-  beta ~ normal(0,10); //set prior distribution
-  extent ~ normal(alpha + year * beta , sigma);
 }
+
 generated quantities {
-  real tMax = 1800;
-  int nDat = 100;
-  vector[nDat] times;
-  for(i in 1:nDat){
-    times[i] = (exp2(i)/exp2(nDat))*tMax;
-  }
-  matrix[nDat,2] pred_gdn_0;
-  matrix[nDat,3] temp;
-  temp = NACAModelVals(times,logkChemInt,logkBleachInt,mChem,
-    mBleach,delay,rdata,idata,initCys,initDTP,0);
-  for(i in 1:nDat){
-    pred_gdn_0[i,1] = times[i];
-    pred_gdn_0[i,2] = temp[i,3];
-  }
-
-  matrix[nDat,2] pred_gdn_3;
-  temp = NACAModelVals(times,logkChemInt,logkBleachInt,mChem,
-    mBleach,delay,rdata,idata,initCys,initDTP,3);
-  for(i in 1:nDat){
-    pred_gdn_3[i,1] = times[i];
-    pred_gdn_3[i,2] = temp[i,3];
-  }
-
-  matrix[nDat,2] pred_gdn_6;
-  temp = NACAModelVals(times,logkChemInt,logkBleachInt,mChem,
-    mBleach,delay,rdata,idata,initCys,initDTP,6);
-  for(i in 1:nDat){
-    pred_gdn_6[i,1] = times[i];
-    pred_gdn_6[i,2] = temp[i,3];
-  }
 }
- //generates predicted values for each data point with rng
-// The posterior predictive distribution

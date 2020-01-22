@@ -1810,14 +1810,14 @@ trialStarts &lt;- c(1);</code></pre>
 <p>Now we will simulate data from our priors using the stan file.</p>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuc3Rhbl9tb2RlbDwtIFwibmFjYU1vZGVsLnN0YW5cIlxuc3RhbmMoZmlsZSA9IHN0YW5fbW9kZWwsIHZlcmJvc2UgPSBUUlVFKVxuc2ltX2RhdGEgPC0gc3RhbihmaWxlID0gc3Rhbl9tb2RlbCxcbiAgICAgICAgICAgICBkYXRhID0gc3Rhbl9kYXRhLFxuICAgICAgICAgICAgIGNoYWlucyA9IDEsIGl0ZXIgPSAxMDAsXG4gICAgICAgICAgICAgYWxnb3JpdGhtID0gXCJGaXhlZF9wYXJhbVwiKVxuYGBgIn0= -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuc3Rhbl9tb2RlbDwtIFwibmFjYU1vZGVsLnN0YW5cIlxuc3RhbmMoZmlsZSA9IHN0YW5fbW9kZWwsIHZlcmJvc2UgPSBUUlVFKVxuYGBgIn0= -->
 <pre class="r"><code>stan_model&lt;- &quot;nacaModel.stan&quot;
-stanc(file = stan_model, verbose = TRUE)
-sim_data &lt;- stan(file = stan_model,
-             data = stan_data,
-             chains = 1, iter = 100,
-             algorithm = &quot;Fixed_param&quot;)</code></pre>
+stanc(file = stan_model, verbose = TRUE)</code></pre>
 <!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiXG5UUkFOU0xBVElORyBNT0RFTCAnbmFjYU1vZGVsJyBGUk9NIFN0YW4gQ09ERSBUTyBDKysgQ09ERSBOT1cuXG4ifQ== -->
+<pre><code>
+TRANSLATING MODEL 'nacaModel' FROM Stan CODE TO C++ CODE NOW.</code></pre>
+<!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
 <!-- rnb-text-end -->
