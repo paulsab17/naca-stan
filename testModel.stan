@@ -22,71 +22,63 @@ functions{
     return dydt;
   }
 
+
   real[] NACAModel(real t0,real[] t,real[] init,real kChemEff,
       real kBleachEff,real[] rdata,int[] idata){
 
-    real parms[2];
-    parms[1] = kChemEff;
-    parms[2] = kBleachEff;
 
-    //real temp[size(t),1];
+    real temp[1,3];
+    real y[3];
+    real p[2];
+    p[1] = kChemEff;
+    p[2] = kBleachEff;
 
-    //temp = integrate_ode_rk45(NACAModelODE, init, t0,
-    //  t, parms, rdata, idata);
+    y = rep_array(0,3);
 
+    if(t0 == t[1]){
+      return init;
+    }
 
-    //create array of state values
-    real x[3];
-    x[1] = 1;
-    x[2] = 2;
-    x[3] = 3;
+    temp = integrate_ode_rk45(NACAModelODE, init, t0, t, p, rdata, idata);
 
-    // if(t0 == t[1]){ //t is an array but only t[1] is meaningful, current time
-    //   x = init;
-    // }else{
-    //   temp = integrate_ode_rk45(NACAModelODE, init, t0,
-    //     t, parms, rdata, idata);
-    //   x = to_array_1d(temp);
-    // }
-
+    y = to_array_1d(temp);
 
     //returns the value of [NACA],[DTP],and [TP]
-    return x;
+    return y;
   }
-
-
-/*  matrix NACAModelVals(real[] time,real logkChemInt,
-      real logkBleachInt,real mChem,real mBleach,real delay,
-      real[] rdata,int[] idata,real initCys,real initDTP,real gdn){
+  
+  matrix NACAModelVals(real[] time,real logkChemInt,real logkBleachInt,real mChem,real mBleach,real delay,real[] rdata,int[] idata,real initCys,real initDTP,real gdn){
 
     real init[3];
+    matrix[20,3] result;
+    int nt;
+    real t0;
+
+    nt = 20;
+    t0 = delay; //start t=0 with some mixing delay
+
+    init = rep_array(0,3);
     init[1] = initCys;  //initial NACA concentration
     init[2] = initDTP;  //initial DTP concentration
     init[3] = 0;        //initial TP concentration
 
-    real kChemEff = pow(10,logkChemInt)+mChem*gdn;
-    real kBleachEff = pow(10,logkBleachInt)+mBleach*gdn;
+    real kChemEff = logkChemInt + mChem + gdn;
+    real kBleachEff = logkBleachInt + mBleach + gdn;
 
-    int nt = size(time);
-    matrix[nt,3] result;
-
-    int t0 = delay; //start t=0 with some mixing delay
-
-    for(i in 1:nt){ //go through times and calculate for each
-      if(time[i]<=t0){ //if this time is before mixDelay, just return init
-        for(j in 1:3) result [i,j] = init[j];
-      }else{
+    for(i in 1:nt){      //go through times and calculate for each
+      if(time[i]>delay){ //if this time is after delay
         //update initial conditions to what they will be at t=t[i]
         init = NACAModel(t0,time[i:i],init,kChemEff,kBleachEff,rdata,idata);
         //update starting time to t=t[i]
         t0 = time[i];
-        //add to result matrix
-        for(j in 1:3) result [i,j] = init[j];
+      }
+      //add current state to result matrix
+      for(j in 1:3){
+        result[i,j] = init[j];
       }
     }
     return result; //return value for each species at each time point
   }
-*/
 }
 
 data{

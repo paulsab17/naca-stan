@@ -26,26 +26,24 @@ functions{
   real[] NACAModel(real t0,real[] t,real[] init,real kChemEff,
       real kBleachEff,real[] rdata,int[] idata){
 
-    real parms[2];
-    parms[1] = kChemEff;
-    parms[2] = kBleachEff;
+      real temp[1,3];
+      real y[3];
+      real p[2];
+      p[1] = kChemEff;
+      p[2] = kBleachEff;
 
-    //create array of state values initialized all to 0
-    real x[3];
-    x[1] = 0;
-    x[2] = 0;
-    x[3] = 0;
+      y = rep_array(0,3);
 
-    if(t0=t[1]){ //t is an array but only t[1] is meaningful, current time
-      x = init;
-    }else{
-      temp = integrate_ode_rk45(NACAModelODE, init, t0,
-        t, parms, rdata, idata);
-      x = to_array_1d(temp);
-    }
+      if(t0 == t[1]){
+        return init;
+      }
 
-    //returns the value of [NACA],[DTP],and [TP]
-    return x;
+      temp = integrate_ode_rk45(NACAModelODE, init, t0, t, p, rdata, idata);
+
+      y = to_array_1d(temp);
+
+      //returns the value of [NACA],[DTP],and [TP]
+      return y;
   }
 
   matrix NACAModelVals(real[] time,real logkChemInt,
