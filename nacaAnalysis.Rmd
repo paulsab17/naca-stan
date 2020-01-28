@@ -42,9 +42,15 @@ numTrials <- 1;
 trialStarts <- c(1);
 ```
 
+After estimating parameters, the model will use them to simulate data at [Gdn] = 0, 3, and 6. This specifies how many data points to simulate for each.
+```{r nData}
+nDat_gen <- 100;
+```
+
+
 Now we have to format all this data for stan.
 ```{r formatStanSim}
-stan_data <-list(prior_logkChemInt=prior_logkChemInt, priorSD_logkChemInt=priorSD_logkChemInt, prior_logkBleachInt=prior_logkBleachInt, priorSD_logkBleachInt=priorSD_logkBleachInt, prior_mChem=prior_mChem, priorSD_mChem=priorSD_mChem, prior_mBleach=prior_mBleach, priorSD_mBleach=priorSD_mBleach, prior_ext=prior_ext,priorSD_ext=priorSD_ext, prior_delay=prior_delay, priorSD_delay=priorSD_delay, initCys=initCys, initDTP=initDTP, N=N, time=time, gdn=gdn, absorbance=absorbance, numTrials=numTrials, trialStarts=trialStarts)
+stan_data <-list(prior_logkChemInt=prior_logkChemInt, priorSD_logkChemInt=priorSD_logkChemInt, prior_logkBleachInt=prior_logkBleachInt, priorSD_logkBleachInt=priorSD_logkBleachInt, prior_mChem=prior_mChem, priorSD_mChem=priorSD_mChem, prior_mBleach=prior_mBleach, priorSD_mBleach=priorSD_mBleach, prior_ext=prior_ext,priorSD_ext=priorSD_ext, prior_delay=prior_delay, priorSD_delay=priorSD_delay, initCys=initCys, initDTP=initDTP, N=N, time=time, gdn=gdn, absorbance=absorbance, numTrials=numTrials, trialStarts=trialStarts,nDat_gen=nDat_gen)
 ```
 
 
@@ -52,10 +58,10 @@ Now we will simulate data from our priors using the stan file.
 ```{r stanSimulate}
 stan_model<- "nacaModel.stan"
 stanc(file = stan_model, verbose = TRUE)
-sim_data <- stan(file = stan_model,
-             data = stan_data,
-             chains = 1, iter = 100,
-             algorithm = "Fixed_param",)
+#sim_data <- stan(file = stan_model,
+#             data = stan_data,
+#             chains = 1, iter = 100,
+#             algorithm = "Fixed_param",)
 ```
 
 
