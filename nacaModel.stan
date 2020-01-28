@@ -50,29 +50,34 @@ functions{
       real logkBleachInt,real mChem,real mBleach,real delay,
       real[] rdata,int[] idata,real initCys,real initDTP,real gdn){
 
-    real init[3];
+     real init[3];
+    matrix[20,3] result;
+    int nt;
+    real t0;
+    real kChemEff;
+    real kBleachEff;
+
+    nt = 20;
+    t0 = delay; //start t=0 with some mixing delay
+
+    init = rep_array(0,3);
     init[1] = initCys;  //initial NACA concentration
     init[2] = initDTP;  //initial DTP concentration
     init[3] = 0;        //initial TP concentration
 
-    real kChemEff = pow(10,logkChemInt)+mChem*gdn;
-    real kBleachEff = pow(10,logkBleachInt)+mBleach*gdn;
+    kChemEff = logkChemInt + mChem + gdn;
+    kBleachEff = logkBleachInt + mBleach + gdn;
 
-    int nt = size(time);
-    matrix[nt,3] result;
-
-    int t0 = delay; //start t=0 with some mixing delay
-
-    for(i in 1:nt){ //go through times and calculate for each
-      if(time[i]<=t0){ //if this time is before mixDelay, just return init
-        for(j in 1:3) result [i,j] = init[j];
-      }else{
+    for(i in 1:nt){      //go through times and calculate for each
+      if(time[i]>delay){ //if this time is after delay
         //update initial conditions to what they will be at t=t[i]
         init = NACAModel(t0,time[i:i],init,kChemEff,kBleachEff,rdata,idata);
         //update starting time to t=t[i]
         t0 = time[i];
-        //add to result matrix
-        for(j in 1:3) result [i,j] = init[j];
+      }
+      //add current state to result matrix
+      for(j in 1:3){
+        result[i,j] = init[j];
       }
     }
     return result; //return value for each species at each time point
@@ -106,6 +111,8 @@ data{
   real priorSD_ext;
   real prior_delay;
   real priorSD_delay;
+  
+  int nDat_gen; //number of simulated data points to generate
 }
 
 
@@ -128,22 +135,23 @@ parameters{
 
 transformed parameters {
   vector[N] predictedAbs; //predicted absorbance for each data point
+  
+  
   for(i in 1:numTrials){
     int start = trialStarts[numTrials];
     int last = trialStarts[numTrials+1]-1;
     int numTimes = last - start + 1;
+    vector[numTimes] temp;
 
     matrix[numTimes,3] concs; //concentrations of each point
 
-    concs = NACAModelVals(time[start:last],logkChemInt,logkBleachInt,mChem,
+    concs = NACAModelVals(to_array_1d(time[start:last]),logkChemInt,logkBleachInt,mChem,
       mBleach,delay,rdata,idata,initCys,initDTP,gdn[start]);
-
-    vector[numTimes] temp;
+      
     temp = concs[,3]; //just extract concentration of TP
     temp = temp * ext; //convert to the absorbances
     predictedAbs = append_row(predictedAbs,temp);
   }
-  int checkSize = size(predictedAbs);
 }
 
 
@@ -163,32 +171,36 @@ model {
 
 generated quantities {
   real tMax = 1800;
-  int nDat = 100;
-  vector[nDat] times;
-  for(i in 1:nDat){
-    times[i] = (exp2(i)/exp2(nDat))*tMax;
+  real times[nDat_gen];
+  matrix[nDat_gen,3] temp;
+  matrix[nDat_gen,2] pred_gdn_0;
+  matrix[nDat_gen,2] pred_gdn_3;
+  matrix[nDat_gen,2] pred_gdn_6;
+  
+  for(i in 1:nDat_gen){
+    times[i] = (exp2(i)/exp2(nDat_gen))*tMax;
   }
-  matrix[nDat,2] pred_gdn_0;
-  matrix[nDat,3] temp;
+  
   temp = NACAModelVals(times,logkChemInt,logkBleachInt,mChem,
     mBleach,delay,rdata,idata,initCys,initDTP,0);
-  for(i in 1:nDat){
+  for(i in 1:nDat_gen){
     pred_gdn_0[i,1] = times[i];
     pred_gdn_0[i,2] = temp[i,3];
   }
 
-  matrix[nDat,2] pred_gdn_3;
+  
   temp = NACAModelVals(times,logkChemInt,logkBleachInt,mChem,
     mBleach,delay,rdata,idata,initCys,initDTP,3);
-  for(i in 1:nDat){
+  for(i in 1:nDat_gen){
     pred_gdn_3[i,1] = times[i];
     pred_gdn_3[i,2] = temp[i,3];
   }
 
-  matrix[nDat,2] pred_gdn_6;
   temp = NACAModelVals(times,logkChemInt,logkBleachInt,mChem,
     mBleach,delay,rdata,idata,initCys,initDTP,6);
-  for(i in 1:nDat){
+  for(i in 1:nDat_gen){
     pred_gdn_6[i,1] = times[i];
     pred_gdn_6[i,2] = temp[i,3];
   }
+}
+

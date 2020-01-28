@@ -53,6 +53,8 @@ functions{
     matrix[20,3] result;
     int nt;
     real t0;
+    real kChemEff;
+    real kBleachEff;
 
     nt = 20;
     t0 = delay; //start t=0 with some mixing delay
@@ -62,8 +64,8 @@ functions{
     init[2] = initDTP;  //initial DTP concentration
     init[3] = 0;        //initial TP concentration
 
-    real kChemEff = logkChemInt + mChem + gdn;
-    real kBleachEff = logkBleachInt + mBleach + gdn;
+    kChemEff = logkChemInt + mChem + gdn;
+    kBleachEff = logkBleachInt + mBleach + gdn;
 
     for(i in 1:nt){      //go through times and calculate for each
       if(time[i]>delay){ //if this time is after delay
