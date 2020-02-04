@@ -37,12 +37,17 @@ functions{
       if(t0 == t[1]){
         return init;
       }
-
+      print("Init is: ",init);
+      print("parms is: ",p);
+      print("times is: ",t);
+      print("t0 is: ",t0);
       temp = integrate_ode_rk45(NACAModelODE, init, t0, t, p, rdata, idata);
+      print("temp is",temp);
 
       y = to_array_1d(temp);
 
       //returns the value of [NACA],[DTP],and [TP]
+      print("y is: ",y);
       return y;
   }
 
@@ -50,14 +55,14 @@ functions{
       real logkBleachInt,real mChem,real mBleach,real delay,
       real[] rdata,int[] idata,real initCys,real initDTP,real gdn){
 
-     real init[3];
-    matrix[20,3] result;
+    real init[3];
+    matrix[size(time),3] result;
     int nt;
     real t0;
     real kChemEff;
     real kBleachEff;
 
-    nt = 20;
+    nt = size(time);
     t0 = delay; //start t=0 with some mixing delay
 
     init = rep_array(0,3);
@@ -67,7 +72,6 @@ functions{
 
     kChemEff = logkChemInt + mChem + gdn;
     kBleachEff = logkBleachInt + mBleach + gdn;
-
     for(i in 1:nt){      //go through times and calculate for each
       if(time[i]>delay){ //if this time is after delay
         //update initial conditions to what they will be at t=t[i]
@@ -94,7 +98,7 @@ data{
 
 
   int <lower=0> numTrials; //number of individual trials
-  int trialStarts[numTrials]; //the N each trial starts at, plus the final N+1
+  int trialStarts[numTrials+1]; //the N each trial starts at, plus the final N+1
 
   real < lower = 0 > initCys;
   real < lower = 0 > initDTP;
@@ -144,13 +148,16 @@ transformed parameters {
     vector[numTimes] temp;
 
     matrix[numTimes,3] concs; //concentrations of each point
+    
 
     concs = NACAModelVals(to_array_1d(time[start:last]),logkChemInt,logkBleachInt,mChem,
       mBleach,delay,rdata,idata,initCys,initDTP,gdn[start]);
       
     temp = concs[,3]; //just extract concentration of TP
     temp = temp * ext; //convert to the absorbances
-    predictedAbs = append_row(predictedAbs,temp);
+    for(j in start:last){
+      predictedAbs[j] = temp[j-start+1];
+    }
   }
 }
 
