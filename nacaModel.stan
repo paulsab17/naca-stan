@@ -29,6 +29,7 @@ functions{
       real temp[1,3];
       real y[3];
       real p[2];
+      
       p[1] = kChemEff;
       p[2] = kBleachEff;
 
@@ -69,9 +70,14 @@ functions{
     init[1] = initCys;  //initial NACA concentration
     init[2] = initDTP;  //initial DTP concentration
     init[3] = 0;        //initial TP concentration
-
-    kChemEff = logkChemInt + mChem + gdn;
-    kBleachEff = logkBleachInt + mBleach + gdn;
+    
+    
+    kChemEff = pow(10,logkChemInt + mChem * gdn);
+    kBleachEff = pow(10,logkBleachInt + mBleach * gdn);
+    
+    print("logkChemInt: ",logkChemInt);
+    print("kChemEff: ",kChemEff);
+    
     for(i in 1:nt){      //go through times and calculate for each
       if(time[i]>delay){ //if this time is after delay
         //update initial conditions to what they will be at t=t[i]
