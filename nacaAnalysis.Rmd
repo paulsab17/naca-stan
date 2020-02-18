@@ -72,6 +72,16 @@ str(posterior)
 
 ```{r}
 pred_vals <- as.matrix(sim_data, pars = "pred_gdn_0")
-pred_vals
+times <- as.matrix(sim_data, pars = "times_gen")
+pred_vals <- as.vector(pred_vals)
+times <- as.vector(times)
+
+pred_data <- data.frame("Time" = times,"Abs" = pred_vals)
+
+ggplot(pred_data,aes(x = times, y = pred_vals)) +
+  geom_point() +
+  labs(x = "Time (s)", y = "Absorbance", title = "Predicted Values") +
+  scale_x_continuous(trans='log10', labels = scales::label_number())
+
 ```
 

@@ -157,9 +157,11 @@ transformed parameters {
 
     matrix[numTimes,3] concs; //concentrations of each point
     
+    real forceLogkChemInt = -3;
+    
     print("NACAModelVals times: ",to_array_1d(time[start:last]));
     print("NMV params: kC ",logkChemInt," kB ",logkBleachInt," mC ",mChem," mB ",mBleach);
-    concs = NACAModelVals(to_array_1d(time[start:last]),logkChemInt,logkBleachInt,mChem,
+    concs = NACAModelVals(to_array_1d(time[start:last]),forceLogkChemInt,logkBleachInt,mChem,
       mBleach,delay,rdata,idata,initCys,initDTP,gdn[start]);
       
     temp = concs[,3]; //just extract concentration of TP
@@ -201,38 +203,38 @@ model {
 
 generated quantities {
   real tMax = 1800;
-  real times[nDat_gen];
+  real times_gen[nDat_gen];
   matrix[nDat_gen,3] temp;
-  matrix[nDat_gen,2] pred_gdn_0;
-  matrix[nDat_gen,2] pred_gdn_3;
-  matrix[nDat_gen,2] pred_gdn_6;
+  real pred_gdn_0[nDat_gen];
+  real pred_gdn_3[nDat_gen];
+  real pred_gdn_6[nDat_gen];
+  
+  real forceLogkChemInt = -3;
+  real forceLogkBleachInt = -5;
   
   print("GQ logkChemInt: ",logkChemInt);
   
   for(i in 1:nDat_gen){
-    times[i] = (exp2(i)/exp2(nDat_gen))*tMax;
+    times_gen[i] = (exp2(i)/exp2(nDat_gen))*tMax;
   }
   
-  temp = NACAModelVals(times,logkChemInt,logkBleachInt,mChem,
+  temp = NACAModelVals(times_gen,forceLogkChemInt,forceLogkBleachInt,mChem,
     mBleach,delay,rdata,idata,initCys,initDTP,0);
   for(i in 1:nDat_gen){
-    pred_gdn_0[i,1] = times[i];
-    pred_gdn_0[i,2] = temp[i,3];
+    pred_gdn_0[i] = temp[i,3];
   }
 
   
-  temp = NACAModelVals(times,logkChemInt,logkBleachInt,mChem,
+  temp = NACAModelVals(times_gen,forceLogkChemInt,forceLogkBleachInt,mChem,
     mBleach,delay,rdata,idata,initCys,initDTP,3);
   for(i in 1:nDat_gen){
-    pred_gdn_3[i,1] = times[i];
-    pred_gdn_3[i,2] = temp[i,3];
+    pred_gdn_3[i] = temp[i,3];
   }
 
-  temp = NACAModelVals(times,logkChemInt,logkBleachInt,mChem,
+  temp = NACAModelVals(times_gen,forceLogkChemInt,forceLogkBleachInt,mChem,
     mBleach,delay,rdata,idata,initCys,initDTP,6);
   for(i in 1:nDat_gen){
-    pred_gdn_6[i,1] = times[i];
-    pred_gdn_6[i,2] = temp[i,3];
+    pred_gdn_6[i] = temp[i,3];
   }
 }
 
