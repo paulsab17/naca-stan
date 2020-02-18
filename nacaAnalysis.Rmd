@@ -12,18 +12,18 @@ library(bayesplot)
 
 First thing to do is to set priors for parameters.
 ```{r priors}
-prior_logkChemInt <- -3
-priorSD_logkChemInt <- 2
+prior_logkChemInt <- -60
+priorSD_logkChemInt <- 1
 prior_logkBleachInt <- -4
-priorSD_logkBleachInt <- 2
+priorSD_logkBleachInt <- 0.5
 prior_mChem <- -0.02
-priorSD_mChem <- 1
+priorSD_mChem <- 0.5
 prior_mBleach <- 0
-priorSD_mBleach <- 1
+priorSD_mBleach <- 0.5
 prior_ext <- 0.02
 priorSD_ext <- 0.01
-prior_delay <- 0
-priorSD_delay <- 1
+prior_delay <- 2
+priorSD_delay <- 0.01
 ```
 
 Next, specify experimental conditions. These are in units of micromolar:
@@ -60,7 +60,7 @@ stan_model<- "nacaModel.stan"
 #stanc(file = stan_model, verbose = TRUE)
 sim_data <- stan(file = stan_model,
              data = stan_data,
-             chains = 1, iter = 10,
+             chains = 1, iter = 1,
              algorithm = "Fixed_param")
 ```
 

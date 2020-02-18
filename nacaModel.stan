@@ -35,14 +35,14 @@ functions{
 
       y = rep_array(0,3);
 
-      if(t0 == t[1]){
+      if(t0 >= t[1]){
         return init;
       }
       print("Init is: ",init);
       print("parms is: ",p);
       print("times is: ",t);
       print("t0 is: ",t0);
-      temp = integrate_ode_rk45(NACAModelODE, init, t0, t, p, rdata, idata);
+      temp = integrate_ode_bdf(NACAModelODE, init, t0, t, p, rdata, idata);
       print("temp is",temp);
 
       y = to_array_1d(temp);
@@ -140,6 +140,8 @@ parameters{
   real < lower = 0 > ext; //extinction coefficient
   real delay;
   real < lower = 0 > sigma; //error SD
+  
+  //print("Params logkChem:",logkChemInt);
 }
 
 
@@ -155,7 +157,8 @@ transformed parameters {
 
     matrix[numTimes,3] concs; //concentrations of each point
     
-
+    print("NACAModelVals times: ",to_array_1d(time[start:last]));
+    print("NMV params: kC ",logkChemInt," kB ",logkBleachInt," mC ",mChem," mB ",mBleach);
     concs = NACAModelVals(to_array_1d(time[start:last]),logkChemInt,logkBleachInt,mChem,
       mBleach,delay,rdata,idata,initCys,initDTP,gdn[start]);
       
@@ -170,6 +173,19 @@ transformed parameters {
 
 
 model {
+  print("Model prior: ",prior_logkChemInt);
+  print("Model value: ",logkChemInt);
+  
+  target += normal_lpdf(logkChemInt | prior_logkChemInt,priorSD_logkChemInt);
+  target += normal_lpdf(logkBleachInt | prior_logkBleachInt,priorSD_logkBleachInt);
+  target += normal_lpdf(mChem | prior_mChem,priorSD_mChem);
+  target += normal_lpdf(mBleach | prior_mBleach,priorSD_mBleach);
+  target += normal_lpdf(ext | prior_ext,priorSD_ext);
+  target += normal_lpdf(delay | prior_delay,priorSD_delay);
+  
+  target += normal_lpdf(absorbance | predictedAbs,sigma);
+  
+  /*
   logkChemInt ~ normal(prior_logkChemInt,priorSD_logkChemInt);
   logkBleachInt ~ normal(prior_logkBleachInt,priorSD_logkBleachInt);
   mChem ~ normal(prior_mChem,priorSD_mChem);
@@ -177,8 +193,9 @@ model {
   ext ~ normal(prior_ext,priorSD_ext);
   delay ~ normal(prior_delay,priorSD_delay);
   sigma ~ cauchy(0,1);
-
-  absorbance ~ normal(time * ext,sigma);
+  
+  absorbance ~ normal(predictedAbs,sigma);
+  */
 }
 
 
@@ -189,6 +206,8 @@ generated quantities {
   matrix[nDat_gen,2] pred_gdn_0;
   matrix[nDat_gen,2] pred_gdn_3;
   matrix[nDat_gen,2] pred_gdn_6;
+  
+  print("GQ logkChemInt: ",logkChemInt);
   
   for(i in 1:nDat_gen){
     times[i] = (exp2(i)/exp2(nDat_gen))*tMax;
