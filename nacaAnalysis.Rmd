@@ -87,7 +87,7 @@ pred_data <- data.frame("Time" = times,"Abs" = pred_vals)
 ggplot(pred_data,aes(x = times, y = pred_vals)) +
   geom_point() +
   labs(x = "Time (s)", y = "Absorbance", title = "Predicted Values") +
-  scale_x_continuous(trans='log10', labels = scales::label_number())
+  scale_x_continuous(trans='log10', labels = scales::label_comma())
 
 ```
 
