@@ -92,6 +92,7 @@ functions{
     }
     return result; //return value for each species at each time point
   }
+  
 
 }
 
@@ -144,50 +145,38 @@ parameters{
   //print("Params logkChem:",logkChemInt);
 }
 
-
-transformed parameters {
+transformed parameters{
+  
   vector[N] predictedAbs; //predicted absorbance for each data point
   
   
-  for(i in 1:numTrials){
-    int start = trialStarts[numTrials];
-    int last = trialStarts[numTrials+1]-1;
-    int numTimes = last - start + 1;
-    vector[numTimes] temp;
+    for(i in 1:numTrials){
+      int start = trialStarts[numTrials];
+      int last = trialStarts[numTrials+1]-1;
+      int numTimes = last - start + 1;
+      vector[numTimes] temp;
 
-    matrix[numTimes,3] concs; //concentrations of each point
+      matrix[numTimes,3] concs; //concentrations of each point
     
-    real forceLogkChemInt = -3;
     
-    print("NACAModelVals times: ",to_array_1d(time[start:last]));
-    print("NMV params: kC ",logkChemInt," kB ",logkBleachInt," mC ",mChem," mB ",mBleach);
-    concs = NACAModelVals(to_array_1d(time[start:last]),forceLogkChemInt,logkBleachInt,mChem,
-      mBleach,delay,rdata,idata,initCys,initDTP,gdn[start]);
+      print("NACAModelVals times: ",to_array_1d(time[start:last]));
+      print("NMV params: kC ",logkChemInt," kB ",logkBleachInt," mC ",mChem," mB ",mBleach);
+      concs = NACAModelVals(to_array_1d(time[start:last]),logkChemInt,logkBleachInt,mChem,
+                  mBleach,delay,rdata,idata,initCys,initDTP,gdn[start]);
       
-    temp = concs[,3]; //just extract concentration of TP
-    temp = temp * ext; //convert to the absorbances
-    for(j in start:last){
-      predictedAbs[j] = temp[j-start+1];
+      temp = concs[,3]; //just extract concentration of TP
+      temp = temp * ext; //convert to the absorbances
+      for(j in start:last){
+        predictedAbs[j] = temp[j-start+1];
+      }
     }
-  }
+  
 }
-
-
 
 model {
   print("Model prior: ",prior_logkChemInt);
   print("Model value: ",logkChemInt);
   
-  target += normal_lpdf(logkChemInt | prior_logkChemInt,priorSD_logkChemInt);
-  target += normal_lpdf(logkBleachInt | prior_logkBleachInt,priorSD_logkBleachInt);
-  target += normal_lpdf(mChem | prior_mChem,priorSD_mChem);
-  target += normal_lpdf(mBleach | prior_mBleach,priorSD_mBleach);
-  target += normal_lpdf(ext | prior_ext,priorSD_ext);
-  target += normal_lpdf(delay | prior_delay,priorSD_delay);
-  
-  target += normal_lpdf(absorbance | predictedAbs,sigma);
-  
-  /*
   logkChemInt ~ normal(prior_logkChemInt,priorSD_logkChemInt);
   logkBleachInt ~ normal(prior_logkBleachInt,priorSD_logkBleachInt);
   mChem ~ normal(prior_mChem,priorSD_mChem);
@@ -197,9 +186,8 @@ model {
   sigma ~ cauchy(0,1);
   
   absorbance ~ normal(predictedAbs,sigma);
-  */
+  
 }
-
 
 generated quantities {
   real tMax = 1800;
@@ -209,8 +197,6 @@ generated quantities {
   real pred_gdn_3[nDat_gen];
   real pred_gdn_6[nDat_gen];
   
-  real forceLogkChemInt = -3;
-  real forceLogkBleachInt = -5;
   
   print("GQ logkChemInt: ",logkChemInt);
   
@@ -218,23 +204,23 @@ generated quantities {
     times_gen[i] = (exp2(i)/exp2(nDat_gen))*tMax;
   }
   
-  temp = NACAModelVals(times_gen,forceLogkChemInt,forceLogkBleachInt,mChem,
+  temp = NACAModelVals(times_gen,logkChemInt,logkBleachInt,mChem,
     mBleach,delay,rdata,idata,initCys,initDTP,0);
   for(i in 1:nDat_gen){
-    pred_gdn_0[i] = temp[i,3];
+    pred_gdn_0[i] = ext*temp[i,3];
   }
 
   
-  temp = NACAModelVals(times_gen,forceLogkChemInt,forceLogkBleachInt,mChem,
+  temp = NACAModelVals(times_gen,logkChemInt,logkBleachInt,mChem,
     mBleach,delay,rdata,idata,initCys,initDTP,3);
   for(i in 1:nDat_gen){
-    pred_gdn_3[i] = temp[i,3];
+    pred_gdn_3[i] = ext*temp[i,3];
   }
 
-  temp = NACAModelVals(times_gen,forceLogkChemInt,forceLogkBleachInt,mChem,
+  temp = NACAModelVals(times_gen,logkChemInt,logkBleachInt,mChem,
     mBleach,delay,rdata,idata,initCys,initDTP,6);
   for(i in 1:nDat_gen){
-    pred_gdn_6[i] = temp[i,3];
+    pred_gdn_6[i] = ext*temp[i,3];
   }
 }
 
