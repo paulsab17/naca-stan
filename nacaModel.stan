@@ -92,6 +92,36 @@ functions{
     }
     return result; //return value for each species at each time point
   }
+  
+  vector getAbs(int N,int numTrials,int[] trialStarts,vector time,
+                          real logkChemInt,real logkBleachInt,real mChem,real mBleach,real delay,
+                          real[] rdata,int[] idata,real initCys,real initDTP,vector gdn,real ext){
+                            
+    vector[N] predictedAbs; //predicted absorbance for each data point
+  
+  
+    for(i in 1:numTrials){
+      int start = trialStarts[numTrials];
+      int last = trialStarts[numTrials+1]-1;
+      int numTimes = last - start + 1;
+      vector[numTimes] temp;
+
+      matrix[numTimes,3] concs; //concentrations of each point
+    
+    
+      print("NACAModelVals times: ",to_array_1d(time[start:last]));
+      print("NMV params: kC ",logkChemInt," kB ",logkBleachInt," mC ",mChem," mB ",mBleach);
+      concs = NACAModelVals(to_array_1d(time[start:last]),logkChemInt,logkBleachInt,mChem,
+                  mBleach,delay,rdata,idata,initCys,initDTP,gdn[start]);
+      
+      temp = concs[,3]; //just extract concentration of TP
+      temp = temp * ext; //convert to the absorbances
+      for(j in start:last){
+        predictedAbs[j] = temp[j-start+1];
+      }
+    }
+    return(predictedAbs);
+  }
 
 }
 
@@ -144,36 +174,6 @@ parameters{
   //print("Params logkChem:",logkChemInt);
 }
 
-
-transformed parameters {
-  vector[N] predictedAbs; //predicted absorbance for each data point
-  
-  
-  for(i in 1:numTrials){
-    int start = trialStarts[numTrials];
-    int last = trialStarts[numTrials+1]-1;
-    int numTimes = last - start + 1;
-    vector[numTimes] temp;
-
-    matrix[numTimes,3] concs; //concentrations of each point
-    
-    real forceLogkChemInt = -3;
-    
-    print("NACAModelVals times: ",to_array_1d(time[start:last]));
-    print("NMV params: kC ",logkChemInt," kB ",logkBleachInt," mC ",mChem," mB ",mBleach);
-    concs = NACAModelVals(to_array_1d(time[start:last]),forceLogkChemInt,logkBleachInt,mChem,
-      mBleach,delay,rdata,idata,initCys,initDTP,gdn[start]);
-      
-    temp = concs[,3]; //just extract concentration of TP
-    temp = temp * ext; //convert to the absorbances
-    for(j in start:last){
-      predictedAbs[j] = temp[j-start+1];
-    }
-  }
-}
-
-
-
 model {
   print("Model prior: ",prior_logkChemInt);
   print("Model value: ",logkChemInt);
@@ -185,7 +185,9 @@ model {
   target += normal_lpdf(ext | prior_ext,priorSD_ext);
   target += normal_lpdf(delay | prior_delay,priorSD_delay);
   
-  target += normal_lpdf(absorbance | predictedAbs,sigma);
+  target += normal_lpdf(absorbance | 
+                          getAbs(N,numTrials,trialStarts,time,logkChemInt,logkBleachInt,mChem,mBleach,delay,
+                                  rdata,idata,initCys,initDTP,gdn,ext),sigma);
   
   /*
   logkChemInt ~ normal(prior_logkChemInt,priorSD_logkChemInt);
@@ -200,7 +202,6 @@ model {
   */
 }
 
-
 generated quantities {
   real tMax = 1800;
   real times_gen[nDat_gen];
@@ -209,8 +210,6 @@ generated quantities {
   real pred_gdn_3[nDat_gen];
   real pred_gdn_6[nDat_gen];
   
-  real forceLogkChemInt = -3;
-  real forceLogkBleachInt = -5;
   
   print("GQ logkChemInt: ",logkChemInt);
   
@@ -218,20 +217,20 @@ generated quantities {
     times_gen[i] = (exp2(i)/exp2(nDat_gen))*tMax;
   }
   
-  temp = NACAModelVals(times_gen,forceLogkChemInt,forceLogkBleachInt,mChem,
+  temp = NACAModelVals(times_gen,logkChemInt,logkBleachInt,mChem,
     mBleach,delay,rdata,idata,initCys,initDTP,0);
   for(i in 1:nDat_gen){
     pred_gdn_0[i] = temp[i,3];
   }
 
   
-  temp = NACAModelVals(times_gen,forceLogkChemInt,forceLogkBleachInt,mChem,
+  temp = NACAModelVals(times_gen,logkChemInt,logkBleachInt,mChem,
     mBleach,delay,rdata,idata,initCys,initDTP,3);
   for(i in 1:nDat_gen){
     pred_gdn_3[i] = temp[i,3];
   }
 
-  temp = NACAModelVals(times_gen,forceLogkChemInt,forceLogkBleachInt,mChem,
+  temp = NACAModelVals(times_gen,logkChemInt,logkBleachInt,mChem,
     mBleach,delay,rdata,idata,initCys,initDTP,6);
   for(i in 1:nDat_gen){
     pred_gdn_6[i] = temp[i,3];
