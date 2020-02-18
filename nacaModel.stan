@@ -178,18 +178,6 @@ model {
   print("Model prior: ",prior_logkChemInt);
   print("Model value: ",logkChemInt);
   
-  target += normal_lpdf(logkChemInt | prior_logkChemInt,priorSD_logkChemInt);
-  target += normal_lpdf(logkBleachInt | prior_logkBleachInt,priorSD_logkBleachInt);
-  target += normal_lpdf(mChem | prior_mChem,priorSD_mChem);
-  target += normal_lpdf(mBleach | prior_mBleach,priorSD_mBleach);
-  target += normal_lpdf(ext | prior_ext,priorSD_ext);
-  target += normal_lpdf(delay | prior_delay,priorSD_delay);
-  
-  target += normal_lpdf(absorbance | 
-                          getAbs(N,numTrials,trialStarts,time,logkChemInt,logkBleachInt,mChem,mBleach,delay,
-                                  rdata,idata,initCys,initDTP,gdn,ext),sigma);
-  
-  /*
   logkChemInt ~ normal(prior_logkChemInt,priorSD_logkChemInt);
   logkBleachInt ~ normal(prior_logkBleachInt,priorSD_logkBleachInt);
   mChem ~ normal(prior_mChem,priorSD_mChem);
@@ -198,8 +186,9 @@ model {
   delay ~ normal(prior_delay,priorSD_delay);
   sigma ~ cauchy(0,1);
   
-  absorbance ~ normal(predictedAbs,sigma);
-  */
+  absorbance ~ normal(getAbs(N,numTrials,trialStarts,time,logkChemInt,logkBleachInt,mChem,mBleach,delay,
+                                  rdata,idata,initCys,initDTP,gdn,ext),sigma);
+  
 }
 
 generated quantities {
