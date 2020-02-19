@@ -201,7 +201,7 @@ generated quantities {
   print("GQ logkChemInt: ",logkChemInt);
   
   for(i in 1:nDat_gen){
-    times_gen[i] = (exp2(i)/exp2(nDat_gen))*tMax;
+    times_gen[i] = (i*i*i*1.0/(nDat_gen*nDat_gen*nDat_gen)*tMax);
   }
   
   temp = NACAModelVals(times_gen,logkChemInt,logkBleachInt,mChem,
