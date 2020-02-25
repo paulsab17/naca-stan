@@ -33,15 +33,14 @@ priorSD_sigma <- 0.05
 
 debug <- 0; #0 for no debug output, 1 for printing gen values, 2 for printing params
 
-
-init_params <- rep(list(list(logkChemInt=prior_logkChemInt,
+init_params <- list(list(logkChemInt=prior_logkChemInt,
                     logkBleachInt=prior_logkBleachInt,
                     mChem=prior_mChem,
                     mBleach=prior_mBleach,
                     ext=prior_ext,
                     delay=prior_delay,
-                    sigma = 0.02)),
-                   4)
+                    sigma = 0.02))
+init_params_4x <- rep(init_params,4)
 ```
 
 Next, specify experimental conditions. These are in units of micromolar:
@@ -86,7 +85,7 @@ stan_model<- "nacaModel.stan"
 #stanc(file = stan_model, verbose = TRUE)
 sim_data <- stan(file = stan_model,
              data = stan_data, init = init_params,
-             chains = 4, iter = 1)
+             chains = 1, iter = 1)
 ```
 
 Plot the simulated data.
@@ -140,8 +139,8 @@ pred_stan_data$trialStarts <- pred_trial_starts
 First, we will fit using the same priors as the values used to generate the data.
 ```{r fit-same-priors}
 sim_fit <- stan(file = stan_model,
-             data = pred_stan_data, init = init_params,
-             chains = 4,iter = 100)
+             data = pred_stan_data, init = init_params_4x,
+             chains = 4,iter = 2000)
 ```
 
 ```{r extract-sim-fit}
