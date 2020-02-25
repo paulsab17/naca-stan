@@ -4,9 +4,13 @@ output: html_notebook
 ---
 
 ```{r libraries, echo=T, results='hide', message=F, warning=F}
+library(tidyverse)
 library(rstan)
 library(gdata)
 library(bayesplot)
+
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
 ```
 
 
@@ -16,7 +20,7 @@ prior_logkChemInt <- -3
 priorSD_logkChemInt <- 0.5
 prior_logkBleachInt <- -4
 priorSD_logkBleachInt <- 0.5
-prior_mChem <- -0.02
+prior_mChem <- -0.05
 priorSD_mChem <- 0.5
 prior_mBleach <- 0
 priorSD_mBleach <- 0.5
@@ -25,12 +29,19 @@ priorSD_ext <- 0.01
 prior_delay <- 2
 priorSD_delay <- 0.01
 
-init_params <- list(list(logkChemInt=prior_logkChemInt,
+priorSD_sigma <- 0.05
+
+debug <- 0; #0 for no debug output, 1 for printing gen values, 2 for printing params
+
+
+init_params <- rep(list(list(logkChemInt=prior_logkChemInt,
                     logkBleachInt=prior_logkBleachInt,
                     mChem=prior_mChem,
                     mBleach=prior_mBleach,
                     ext=prior_ext,
-                    delay=prior_delay))
+                    delay=prior_delay,
+                    sigma = 0.02)),
+                   4)
 ```
 
 Next, specify experimental conditions. These are in units of micromolar:
@@ -49,15 +60,23 @@ numTrials <- 1
 trialStarts <- c(1,3)
 ```
 
-After estimating parameters, the model will use them to simulate data at [Gdn] = 0, 3, and 6. This specifies how many data points to simulate for each.
+After estimating parameters, the model will use them to simulate data at [Gdn] = 0, 3, and 6. This specifies how many data points to simulate for each, as well as how long from mixing to the first data point recorded.
 ```{r nData}
 nDat_gen <- 100
+deadTime <- 5
 ```
 
 
 Now we have to format all this data for stan.
 ```{r formatStanSim}
-stan_data <-list(prior_logkChemInt=prior_logkChemInt, priorSD_logkChemInt=priorSD_logkChemInt, prior_logkBleachInt=prior_logkBleachInt, priorSD_logkBleachInt=priorSD_logkBleachInt, prior_mChem=prior_mChem, priorSD_mChem=priorSD_mChem, prior_mBleach=prior_mBleach, priorSD_mBleach=priorSD_mBleach, prior_ext=prior_ext,priorSD_ext=priorSD_ext, prior_delay=prior_delay, priorSD_delay=priorSD_delay, initCys=initCys, initDTP=initDTP, N=N, time=time, gdn=gdn, absorbance=absorbance, numTrials=numTrials, trialStarts=trialStarts,nDat_gen=nDat_gen)
+stan_data <-list(prior_logkChemInt=prior_logkChemInt, priorSD_logkChemInt=priorSD_logkChemInt,
+                 prior_logkBleachInt=prior_logkBleachInt, priorSD_logkBleachInt=priorSD_logkBleachInt,
+                 prior_mChem=prior_mChem, priorSD_mChem=priorSD_mChem, prior_mBleach=prior_mBleach,
+                 priorSD_mBleach=priorSD_mBleach, prior_ext=prior_ext,priorSD_ext=priorSD_ext,
+                 prior_delay=prior_delay, priorSD_delay=priorSD_delay, initCys=initCys, initDTP=initDTP, N=N,
+                 time=time, gdn=gdn, absorbance=absorbance,
+                 numTrials=numTrials,trialStarts=trialStarts,nDat_gen=nDat_gen,deadTime=deadTime,
+                 priorSD_sigma=priorSD_sigma,debug=debug)
 ```
 
 
@@ -67,27 +86,67 @@ stan_model<- "nacaModel.stan"
 #stanc(file = stan_model, verbose = TRUE)
 sim_data <- stan(file = stan_model,
              data = stan_data, init = init_params,
-             chains = 1, iter = 1)
+             chains = 4, iter = 1)
 ```
 
+Plot the simulated data.
+```{r plot-sim}
+posterior <- rstan::extract(sim_data)
 
-```{r}
-posterior <- extract(sim_data)
-str(posterior)
-```
+extractData <- function(fitObject,name,gdn){
+  vals <- as.matrix(fitObject,pars = name)
+  times <- as.matrix(fitObject, pars = "times_gen")
+  vals <- as.vector(vals)
+  times <- as.vector(times)
+  pred_data <- data.frame("Time" = times, "Gdn" = gdn, "Abs" = vals)
+  return(pred_data)
+}
+  
+pred_data_0 <- extractData(sim_data,"pred_gdn_0",0)
+pred_data_3 <- extractData(sim_data,"pred_gdn_3",3)
+pred_data_6 <- extractData(sim_data,"pred_gdn_6",6)
 
-```{r}
-pred_vals <- as.matrix(sim_data, pars = "pred_gdn_0")
-times <- as.matrix(sim_data, pars = "times_gen")
-pred_vals <- as.vector(pred_vals)
-times <- as.vector(times)
+pred_trial_starts = c(1,
+                      nDat_gen+1,
+                      nDat_gen*2+1,
+                      nDat_gen*3+1)
 
-pred_data <- data.frame("Time" = times,"Abs" = pred_vals)
+numPredTrials = 3
 
-ggplot(pred_data,aes(x = times, y = pred_vals)) +
+pred_data_ALL <- rbind(pred_data_0,pred_data_3,pred_data_6)
+ggplot(pred_data_ALL,aes(x = Time, y = Abs,color = factor(Gdn))) +
   geom_point() +
   labs(x = "Time (s)", y = "Absorbance", title = "Predicted Values") +
-  scale_x_continuous(trans='log10', labels = scales::label_comma())
+  scale_x_continuous(trans='log10', labels = scales::label_comma(), limits = c(1,1800))
 
+```
+
+Now, we try to go back and fit the simulated data with the model. First we need to format the data.
+
+```{r format-sim}
+pred_stan_data <- stan_data
+# the same as before except for these changes
+pred_stan_data$N <- 3*nDat_gen
+pred_stan_data$time <- pull(pred_data_ALL,Time)
+pred_stan_data$gdn <- pull(pred_data_ALL,Gdn)
+pred_stan_data$absorbance <- pred_data_ALL %>%
+  mutate(Abs = if_else(Abs<=0,0.0001,Abs)) %>%
+  pull(Abs)
+pred_stan_data$numTrials <- numPredTrials
+pred_stan_data$trialStarts <- pred_trial_starts
+
+```
+
+First, we will fit using the same priors as the values used to generate the data.
+```{r fit-same-priors}
+sim_fit <- stan(file = stan_model,
+             data = pred_stan_data, init = init_params,
+             chains = 4,iter = 100)
+```
+
+```{r extract-sim-fit}
+sim_fit_posterior <- rstan::extract(sim_fit)
+traceplot(sim_fit,pars=c("logkChemInt","logkBleachInt","mChem","mBleach"))
+stan_dens(sim_fit,pars=c("logkChemInt","logkBleachInt","mChem","mBleach"))
 ```
 
