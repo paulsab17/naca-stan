@@ -3,8 +3,11 @@ title: "NACA Stan fitting"
 output: html_notebook
 ---
 
+## Setup
+
 ```{r libraries, echo=T, results='hide', message=F, warning=F}
 library(tidyverse)
+library(br)
 library(rstan)
 library(gdata)
 library(bayesplot)
@@ -13,6 +16,7 @@ rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
 ```
 
+## Simulation parameters
 
 First thing to do is to set priors for parameters.
 ```{r priors}
@@ -78,6 +82,7 @@ stan_data <-list(prior_logkChemInt=prior_logkChemInt, priorSD_logkChemInt=priorS
                  priorSD_sigma=priorSD_sigma,debug=debug)
 ```
 
+## Simulate data
 
 Now we will simulate data from our priors using the stan file.
 ```{r stanSimulate}
@@ -120,6 +125,8 @@ ggplot(pred_data_ALL,aes(x = Time, y = Abs,color = factor(Gdn))) +
 
 ```
 
+## Fit simulated data (same priors)
+
 Now, we try to go back and fit the simulated data with the model. First we need to format the data.
 
 ```{r format-sim}
@@ -133,7 +140,6 @@ pred_stan_data$absorbance <- pred_data_ALL %>%
   pull(Abs)
 pred_stan_data$numTrials <- numPredTrials
 pred_stan_data$trialStarts <- pred_trial_starts
-
 ```
 
 First, we will fit using the same priors as the values used to generate the data.
@@ -143,9 +149,121 @@ sim_fit <- stan(file = stan_model,
              chains = 4,iter = 2000)
 ```
 
-```{r extract-sim-fit}
+Plot the posteriors, along with the center of the prior distributions.
+```{r posterior-plots}
 sim_fit_posterior <- rstan::extract(sim_fit)
-traceplot(sim_fit,pars=c("logkChemInt","logkBleachInt","mChem","mBleach"))
-stan_dens(sim_fit,pars=c("logkChemInt","logkBleachInt","mChem","mBleach"))
+
+par(mfrow = c(2,2))
+
+plot(density(sim_fit_posterior$logkChemInt), main = "logkChemInt")
+abline(v = prior_logkChemInt, col = 4, lty = 2)
+
+plot(density(sim_fit_posterior$logkBleachInt), main = "logkBleachInt")
+abline(v = prior_logkBleachInt, col = 4, lty = 2)
+
+plot(density(sim_fit_posterior$mChem), main = "mChem")
+abline(v = prior_mChem, col = 4, lty = 2)
+
+plot(density(sim_fit_posterior$mBleach), main = "mBleach")
+abline(v = prior_mBleach, col = 4, lty = 2)
 ```
 
+Convergence plots: diagnostic to see fit.
+```{r diagnostic-plots}
+traceplot(sim_fit,pars=c("logkChemInt","logkBleachInt","mChem","mBleach"))
+```
+
+##Fit simulated data (different priors)
+
+First, save old parameters as the target we hopefullly will get back to
+```{r save-targets}
+target_logkChemInt <- prior_logkChemInt
+target_logkBleachInt <- prior_logkBleachInt
+target_mChem <- prior_mChem
+target_mBleach <- prior_mBleach
+target_ext <- prior_ext
+target_delay <- prior_delay
+```
+
+Now, change the priors
+```{r change-priors}
+prior_logkChemInt <- -2
+priorSD_logkChemInt <- 2
+prior_logkBleachInt <- -1
+priorSD_logkBleachInt <- 2
+prior_mChem <- 0.05
+priorSD_mChem <- 2
+prior_mBleach <- 0.1
+priorSD_mBleach <- 2
+prior_ext <- 0.01
+priorSD_ext <- 0.02
+prior_delay <- 5
+priorSD_delay <- 1
+
+priorSD_sigma <- 0.05
+
+debug <- 0; #0 for no debug output, 1 for printing gen values, 2 for printing params
+
+init_params <- list(list(logkChemInt=prior_logkChemInt,
+                    logkBleachInt=prior_logkBleachInt,
+                    mChem=prior_mChem,
+                    mBleach=prior_mBleach,
+                    ext=prior_ext,
+                    delay=prior_delay,
+                    sigma = 0.02))
+init_params_4x <- rep(init_params,4)
+```
+
+Now format data as before
+```{r format-sim-2}
+pred_stan_data_2 <- pred_stan_data
+# the same as the previous fit except for changing the priors
+
+pred_stan_data_2$prior_logkChemInt <- prior_logkChemInt
+pred_stan_data_2$priorSD_logkChemInt <- priorSD_logkChemInt
+pred_stan_data_2$prior_logkBleachInt <- prior_logkBleachInt
+pred_stan_data_2$priorSD_logkBleachInt <- priorSD_logkBleachInt
+pred_stan_data_2$prior_mChem <- prior_mChem
+pred_stan_data_2$priorSD_mChem <- priorSD_mChem
+pred_stan_data_2$prior_mBleach <- prior_mBleach
+pred_stan_data_2$priorSD_mBleach <- priorSD_mBleach
+pred_stan_data_2$prior_ext <- prior_ext
+pred_stan_data_2$priorSD_ext <- priorSD_ext
+pred_stan_data_2$prior_delay <- prior_delay
+pred_stan_data_2$priorSD_delay <- priorSD_delay
+```
+
+Now fit the data
+```{r fit-diff-priors}
+sim_fit_diff <- stan(file = stan_model,
+             data = pred_stan_data_2, init = init_params_4x,
+             chains = 4,iter = 100)
+```
+
+Posterior plots
+```{r posterior-plots-2}
+sim_fit_diff_posterior <- rstan::extract(sim_fit_diff)
+
+par(mfrow = c(2,2))
+
+plot(density(sim_fit_diff_posterior$logkChemInt), main = "logkChemInt",xlim = c(-3.1,-1.9))
+abline(v = prior_logkChemInt, col = 4, lty = 2)
+abline(v = target_logkChemInt, col = "red", lty = 2)
+
+plot(density(sim_fit_diff_posterior$logkBleachInt), main = "logkBleachInt",xlim = c(-5,-0.9))
+abline(v = prior_logkBleachInt, col = 4, lty = 2)
+abline(v = target_logkBleachInt, col = "red", lty = 2)
+
+plot(density(sim_fit_diff_posterior$mChem), main = "mChem",xlim = c(-0.08,0.06))
+abline(v = prior_mChem, col = 4, lty = 2)
+abline(v = target_mChem, col = "red", lty = 2)
+
+plot(density(sim_fit_diff_posterior$mBleach), main = "mBleach",xlim = c(-5,0.12))
+abline(v = prior_mBleach, col = 4, lty = 2)
+abline(v = target_mBleach, col = "red", lty = 2)
+```
+
+Diagnostic plots
+```{r diagnostic-plots-2}
+traceplot(sim_fit_diff,pars=c("logkChemInt","logkBleachInt","mChem","mBleach"))
+```
