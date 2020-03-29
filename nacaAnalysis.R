@@ -1,13 +1,6 @@
----
-title: "NACA Stan fitting"
-output: html_notebook
----
-
-## Setup
-
-```{r libraries, echo=T, results='hide', message=F, warning=F}
+## ----libraries, echo=T, results='hide', message=F, warning=F-----------------------------------------
 library(tidyverse)
-library(broom)
+library(br)
 library(rstan)
 library(gdata)
 library(bayesplot)
@@ -15,13 +8,8 @@ library(bayesplot)
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
 
-knitr::purl(input = "nacaAnalysis.Rmd",output = "nacaAnalysis.R")
-```
 
-## Simulation parameters
-
-First thing to do is to set priors for parameters.
-```{r priors}
+## ----priors------------------------------------------------------------------------------------------
 prior_logkChemInt <- -3
 priorSD_logkChemInt <- 0.5
 prior_logkBleachInt <- -4
@@ -47,33 +35,28 @@ init_params <- list(list(logkChemInt=prior_logkChemInt,
                     delay=prior_delay,
                     sigma = 0.02))
 init_params_4x <- rep(init_params,4)
-```
 
-Next, specify experimental conditions. These are in units of micromolar:
-```{r conditions}
+
+## ----conditions--------------------------------------------------------------------------------------
 initCys <- 50
 initDTP <- 100
-```
 
-Later we will fit data and so will have meaningful values for these data values. For now, we are just simulating data from the priors, so we will just set them to junk data
-```{r nullData}
+
+## ----nullData----------------------------------------------------------------------------------------
 N <- 2
 time <- c(5,6)
 gdn <- c(0,0)
 absorbance <- c(0,0)
 numTrials <- 1
 trialStarts <- c(1,3)
-```
 
-After estimating parameters, the model will use them to simulate data at [Gdn] = 0, 3, and 6. This specifies how many data points to simulate for each, as well as how long from mixing to the first data point recorded.
-```{r nData}
+
+## ----nData-------------------------------------------------------------------------------------------
 nDat_gen <- 100
 deadTime <- 5
-```
 
 
-Now we have to format all this data for stan.
-```{r formatStanSim}
+## ----formatStanSim-----------------------------------------------------------------------------------
 stan_data <-list(prior_logkChemInt=prior_logkChemInt, priorSD_logkChemInt=priorSD_logkChemInt,
                  prior_logkBleachInt=prior_logkBleachInt, priorSD_logkBleachInt=priorSD_logkBleachInt,
                  prior_mChem=prior_mChem, priorSD_mChem=priorSD_mChem, prior_mBleach=prior_mBleach,
@@ -82,21 +65,17 @@ stan_data <-list(prior_logkChemInt=prior_logkChemInt, priorSD_logkChemInt=priorS
                  time=time, gdn=gdn, absorbance=absorbance,
                  numTrials=numTrials,trialStarts=trialStarts,nDat_gen=nDat_gen,deadTime=deadTime,
                  priorSD_sigma=priorSD_sigma,debug=debug)
-```
 
-## Simulate data
 
-Now we will simulate data from our priors using the stan file.
-```{r stanSimulate}
+## ----stanSimulate------------------------------------------------------------------------------------
 stan_model<- "nacaModel.stan"
 #stanc(file = stan_model, verbose = TRUE)
 sim_data <- stan(file = stan_model,
              data = stan_data, init = init_params,
              chains = 1, iter = 1)
-```
 
-Plot the simulated data.
-```{r plot-sim}
+
+## ----plot-sim----------------------------------------------------------------------------------------
 posterior <- rstan::extract(sim_data)
 
 extractData <- function(fitObject,name,gdn){
@@ -125,13 +104,9 @@ ggplot(pred_data_ALL,aes(x = Time, y = Abs,color = factor(Gdn))) +
   labs(x = "Time (s)", y = "Absorbance", title = "Predicted Values") +
   scale_x_continuous(trans='log10', labels = scales::label_comma(), limits = c(1,1800))
 
-```
 
-## Fit simulated data (same priors)
 
-Now, we try to go back and fit the simulated data with the model. First we need to format the data.
-
-```{r format-sim}
+## ----format-sim--------------------------------------------------------------------------------------
 pred_stan_data <- stan_data
 # the same as before except for these changes
 pred_stan_data$N <- 3*nDat_gen
@@ -142,17 +117,15 @@ pred_stan_data$absorbance <- pred_data_ALL %>%
   pull(Abs)
 pred_stan_data$numTrials <- numPredTrials
 pred_stan_data$trialStarts <- pred_trial_starts
-```
 
-First, we will fit using the same priors as the values used to generate the data.
-```{r fit-same-priors}
+
+## ----fit-same-priors---------------------------------------------------------------------------------
 sim_fit <- stan(file = stan_model,
              data = pred_stan_data, init = init_params_4x,
              chains = 4,iter = 2000)
-```
 
-Plot the posteriors, along with the center of the prior distributions.
-```{r posterior-plots}
+
+## ----posterior-plots---------------------------------------------------------------------------------
 sim_fit_posterior <- rstan::extract(sim_fit)
 
 par(mfrow = c(2,2))
@@ -168,27 +141,22 @@ abline(v = prior_mChem, col = 4, lty = 2)
 
 plot(density(sim_fit_posterior$mBleach), main = "mBleach")
 abline(v = prior_mBleach, col = 4, lty = 2)
-```
 
-Convergence plots: diagnostic to see fit.
-```{r diagnostic-plots}
+
+## ----diagnostic-plots--------------------------------------------------------------------------------
 traceplot(sim_fit,pars=c("logkChemInt","logkBleachInt","mChem","mBleach"))
-```
 
-##Fit simulated data (different priors)
 
-First, save old parameters as the target we hopefullly will get back to
-```{r save-targets}
+## ----save-targets------------------------------------------------------------------------------------
 target_logkChemInt <- prior_logkChemInt
 target_logkBleachInt <- prior_logkBleachInt
 target_mChem <- prior_mChem
 target_mBleach <- prior_mBleach
 target_ext <- prior_ext
 target_delay <- prior_delay
-```
 
-Now, change the priors
-```{r change-priors}
+
+## ----change-priors-----------------------------------------------------------------------------------
 prior_logkChemInt <- -2
 priorSD_logkChemInt <- 2
 prior_logkBleachInt <- -1
@@ -214,10 +182,9 @@ init_params <- list(list(logkChemInt=prior_logkChemInt,
                     delay=prior_delay,
                     sigma = 0.02))
 init_params_4x <- rep(init_params,4)
-```
 
-Now format data as before
-```{r format-sim-2}
+
+## ----format-sim-2------------------------------------------------------------------------------------
 pred_stan_data_2 <- pred_stan_data
 # the same as the previous fit except for changing the priors
 
@@ -233,17 +200,15 @@ pred_stan_data_2$prior_ext <- prior_ext
 pred_stan_data_2$priorSD_ext <- priorSD_ext
 pred_stan_data_2$prior_delay <- prior_delay
 pred_stan_data_2$priorSD_delay <- priorSD_delay
-```
 
-Now fit the data
-```{r fit-diff-priors}
+
+## ----fit-diff-priors---------------------------------------------------------------------------------
 sim_fit_diff <- stan(file = stan_model,
              data = pred_stan_data_2, init = init_params_4x,
              chains = 4,iter = 100)
-```
 
-Posterior plots
-```{r posterior-plots-2}
+
+## ----posterior-plots-2-------------------------------------------------------------------------------
 sim_fit_diff_posterior <- rstan::extract(sim_fit_diff)
 
 par(mfrow = c(2,2))
@@ -263,9 +228,8 @@ abline(v = target_mChem, col = "red", lty = 2)
 plot(density(sim_fit_diff_posterior$mBleach), main = "mBleach",xlim = c(-5,0.12))
 abline(v = prior_mBleach, col = 4, lty = 2)
 abline(v = target_mBleach, col = "red", lty = 2)
-```
 
-Diagnostic plots
-```{r diagnostic-plots-2}
+
+## ----diagnostic-plots-2------------------------------------------------------------------------------
 traceplot(sim_fit_diff,pars=c("logkChemInt","logkBleachInt","mChem","mBleach"))
-```
+
