@@ -204,7 +204,7 @@ priorSD_delay <- 1
 
 priorSD_sigma <- 0.05
 
-debug <- 0; #0 for no debug output, 1 for printing gen values, 2 for printing params
+debug <- 2; #0 for no debug output, 1 for printing gen values, 2 for printing params
 
 init_params <- list(list(logkChemInt=prior_logkChemInt,
                     logkBleachInt=prior_logkBleachInt,
@@ -233,13 +233,14 @@ pred_stan_data_2$prior_ext <- prior_ext
 pred_stan_data_2$priorSD_ext <- priorSD_ext
 pred_stan_data_2$prior_delay <- prior_delay
 pred_stan_data_2$priorSD_delay <- priorSD_delay
+pred_stan_data_2$debug <- debug
 ```
 
 Now fit the data
 ```{r fit-diff-priors}
 sim_fit_diff <- stan(file = stan_model,
              data = pred_stan_data_2, init = init_params_4x,
-             chains = 4,iter = 100)
+             chains = 4,iter = 2000)
 ```
 
 Posterior plots
@@ -269,3 +270,56 @@ Diagnostic plots
 ```{r diagnostic-plots-2}
 traceplot(sim_fit_diff,pars=c("logkChemInt","logkBleachInt","mChem","mBleach"))
 ```
+
+
+### Now fit actual data
+
+First load in data. It was formatted usign Mathematica.
+
+```{r input-data}
+exp_data <- read_csv("NACAdata.csv")
+trial_nums <- exp_data$Trial
+exp_trial_starts <- match(unique(trial_nums),trial_nums)
+exp_trial_starts <- append(exp_trial_starts,length(trial_nums)+1)
+```
+
+Format data
+
+```{r format-exp}
+exp_stan_data <- stan_data
+# the same as before except for these changes
+exp_stan_data$N <- nrow(exp_data)
+exp_stan_data$time <- pull(exp_data,Time)
+exp_stan_data$gdn <- pull(exp_data,Gdn)
+exp_stan_data$absorbance <- exp_data %>%
+  mutate(Abs = if_else(Abs<=0,0.0001,Abs)) %>%
+  pull(Abs)
+exp_stan_data$numTrials <- length(exp_trial_starts)-1
+exp_stan_data$trialStarts <- exp_trial_starts
+```
+
+```{r fit-exp}
+exp_fit <- stan(file = stan_model,
+             data = exp_stan_data, init = init_params_4x,
+             chains = 4,iter = 200)
+```
+
+Posterior plots
+```{r posterior-plots-exp}
+exp_fit_posterior <- rstan::extract(exp_fit)
+
+par(mfrow = c(2,2))
+
+plot(density(exp_fit_posterior$logkChemInt), main = "logkChemInt",xlim = c(-3.1,-1.9))
+plot(density(exp_fit_posterior$logkBleachInt), main = "logkBleachInt",xlim = c(-5,-0.9))
+plot(density(exp_fit_posterior$mChem), main = "mChem",xlim = c(-0.08,0.06))
+plot(density(exp_fit_posterior$mBleach), main = "mBleach",xlim = c(-5,0.12))
+```
+
+Diagnostic plots
+```{r diagnostic-plots-exp}
+traceplot(exp_fit,pars=c("logkChemInt","logkBleachInt","mChem","mBleach"))
+```
+
+
+
