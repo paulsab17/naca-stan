@@ -284,7 +284,6 @@ exp_trial_starts <- append(exp_trial_starts,length(trial_nums)+1)
 ```
 
 Format data
-
 ```{r format-exp}
 exp_stan_data <- stan_data
 # the same as before except for these changes
@@ -298,10 +297,53 @@ exp_stan_data$numTrials <- length(exp_trial_starts)-1
 exp_stan_data$trialStarts <- exp_trial_starts
 ```
 
+Choose priors
+```{r choose-priors-exp}
+prior_logkChemInt <- -2
+priorSD_logkChemInt <- 2
+prior_logkBleachInt <- -1
+priorSD_logkBleachInt <- 2
+prior_mChem <- -0.5
+priorSD_mChem <- 2
+prior_mBleach <- -2
+priorSD_mBleach <- 2
+prior_ext <- 0.01
+priorSD_ext <- 0.02
+prior_delay <- 5
+priorSD_delay <- 1
+
+priorSD_sigma <- 0.05
+
+debug <- 2; #0 for no debug output, 1 for printing gen values, 2 for printing params
+
+init_params <- list(list(logkChemInt=prior_logkChemInt,
+                    logkBleachInt=prior_logkBleachInt,
+                    mChem=prior_mChem,
+                    mBleach=prior_mBleach,
+                    ext=prior_ext,
+                    delay=prior_delay,
+                    sigma = 0.02))
+init_params_4x <- rep(init_params,4)
+
+exp_stan_data$prior_logkChemInt <- prior_logkChemInt
+exp_stan_data$priorSD_logkChemInt <- priorSD_logkChemInt
+exp_stan_data$prior_logkBleachInt <- prior_logkBleachInt
+exp_stan_data$priorSD_logkBleachInt <- priorSD_logkBleachInt
+exp_stan_data$prior_mChem <- prior_mChem
+exp_stan_data$priorSD_mChem <- priorSD_mChem
+exp_stan_data$prior_mBleach <- prior_mBleach
+exp_stan_data$priorSD_mBleach <- priorSD_mBleach
+exp_stan_data$prior_ext <- prior_ext
+exp_stan_data$priorSD_ext <- priorSD_ext
+exp_stan_data$prior_delay <- prior_delay
+exp_stan_data$priorSD_delay <- priorSD_delay
+```
+
+Fit experimental data
 ```{r fit-exp}
 exp_fit <- stan(file = stan_model,
              data = exp_stan_data, init = init_params_4x,
-             chains = 4,iter = 200)
+             chains = 4,iter = 2000)
 ```
 
 Posterior plots
@@ -311,9 +353,13 @@ exp_fit_posterior <- rstan::extract(exp_fit)
 par(mfrow = c(2,2))
 
 plot(density(exp_fit_posterior$logkChemInt), main = "logkChemInt",xlim = c(-3.1,-1.9))
+abline(v = exp_stan_data$prior_logkChemInt, col = 4, lty = 2)
 plot(density(exp_fit_posterior$logkBleachInt), main = "logkBleachInt",xlim = c(-5,-0.9))
-plot(density(exp_fit_posterior$mChem), main = "mChem",xlim = c(-0.08,0.06))
+abline(v = exp_stan_data$prior_logkBleachInt, col = 4, lty = 2)
+plot(density(exp_fit_posterior$mChem), main = "mChem",xlim = c(-0.2,0.06))
+abline(v = exp_stan_data$prior_mChem, col = 4, lty = 2)
 plot(density(exp_fit_posterior$mBleach), main = "mBleach",xlim = c(-5,0.12))
+abline(v = exp_stan_data$prior_mBleach, col = 4, lty = 2)
 ```
 
 Diagnostic plots

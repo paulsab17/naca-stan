@@ -1,4 +1,4 @@
-## ----libraries, echo=T, results='hide', message=F, warning=F------------------------------------------------------------
+## ----libraries, echo=T, results='hide', message=F, warning=F--------------------------------------------------
 library(tidyverse)
 library(broom)
 library(rstan)
@@ -11,7 +11,7 @@ options(mc.cores = parallel::detectCores())
 knitr::purl(input = "nacaAnalysis.Rmd",output = "nacaAnalysis.R")
 
 
-## ----priors-------------------------------------------------------------------------------------------------------------
+## ----priors---------------------------------------------------------------------------------------------------
 prior_logkChemInt <- -3
 priorSD_logkChemInt <- 0.5
 prior_logkBleachInt <- -4
@@ -39,12 +39,12 @@ init_params <- list(list(logkChemInt=prior_logkChemInt,
 init_params_4x <- rep(init_params,4)
 
 
-## ----conditions---------------------------------------------------------------------------------------------------------
+## ----conditions-----------------------------------------------------------------------------------------------
 initCys <- 50
 initDTP <- 100
 
 
-## ----nullData-----------------------------------------------------------------------------------------------------------
+## ----nullData-------------------------------------------------------------------------------------------------
 N <- 2
 time <- c(5,6)
 gdn <- c(0,0)
@@ -53,12 +53,12 @@ numTrials <- 1
 trialStarts <- c(1,3)
 
 
-## ----nData--------------------------------------------------------------------------------------------------------------
+## ----nData----------------------------------------------------------------------------------------------------
 nDat_gen <- 100
 deadTime <- 5
 
 
-## ----formatStanSim------------------------------------------------------------------------------------------------------
+## ----formatStanSim--------------------------------------------------------------------------------------------
 stan_data <-list(prior_logkChemInt=prior_logkChemInt, priorSD_logkChemInt=priorSD_logkChemInt,
                  prior_logkBleachInt=prior_logkBleachInt, priorSD_logkBleachInt=priorSD_logkBleachInt,
                  prior_mChem=prior_mChem, priorSD_mChem=priorSD_mChem, prior_mBleach=prior_mBleach,
@@ -69,7 +69,7 @@ stan_data <-list(prior_logkChemInt=prior_logkChemInt, priorSD_logkChemInt=priorS
                  priorSD_sigma=priorSD_sigma,debug=debug)
 
 
-## ----stanSimulate-------------------------------------------------------------------------------------------------------
+## ----stanSimulate---------------------------------------------------------------------------------------------
 stan_model<- "nacaModel.stan"
 #stanc(file = stan_model, verbose = TRUE)
 sim_data <- stan(file = stan_model,
@@ -77,7 +77,7 @@ sim_data <- stan(file = stan_model,
              chains = 1, iter = 1)
 
 
-## ----plot-sim-----------------------------------------------------------------------------------------------------------
+## ----plot-sim-------------------------------------------------------------------------------------------------
 posterior <- rstan::extract(sim_data)
 
 extractData <- function(fitObject,name,gdn){
@@ -108,7 +108,7 @@ ggplot(pred_data_ALL,aes(x = Time, y = Abs,color = factor(Gdn))) +
 
 
 
-## ----format-sim---------------------------------------------------------------------------------------------------------
+## ----format-sim-----------------------------------------------------------------------------------------------
 pred_stan_data <- stan_data
 # the same as before except for these changes
 pred_stan_data$N <- 3*nDat_gen
@@ -121,13 +121,13 @@ pred_stan_data$numTrials <- numPredTrials
 pred_stan_data$trialStarts <- pred_trial_starts
 
 
-## ----fit-same-priors----------------------------------------------------------------------------------------------------
+## ----fit-same-priors------------------------------------------------------------------------------------------
 sim_fit <- stan(file = stan_model,
              data = pred_stan_data, init = init_params_4x,
              chains = 4,iter = 2000)
 
 
-## ----posterior-plots----------------------------------------------------------------------------------------------------
+## ----posterior-plots------------------------------------------------------------------------------------------
 sim_fit_posterior <- rstan::extract(sim_fit)
 
 par(mfrow = c(2,2))
@@ -145,11 +145,11 @@ plot(density(sim_fit_posterior$mBleach), main = "mBleach")
 abline(v = prior_mBleach, col = 4, lty = 2)
 
 
-## ----diagnostic-plots---------------------------------------------------------------------------------------------------
+## ----diagnostic-plots-----------------------------------------------------------------------------------------
 traceplot(sim_fit,pars=c("logkChemInt","logkBleachInt","mChem","mBleach"))
 
 
-## ----save-targets-------------------------------------------------------------------------------------------------------
+## ----save-targets---------------------------------------------------------------------------------------------
 target_logkChemInt <- prior_logkChemInt
 target_logkBleachInt <- prior_logkBleachInt
 target_mChem <- prior_mChem
@@ -158,7 +158,7 @@ target_ext <- prior_ext
 target_delay <- prior_delay
 
 
-## ----change-priors------------------------------------------------------------------------------------------------------
+## ----change-priors--------------------------------------------------------------------------------------------
 prior_logkChemInt <- -2
 priorSD_logkChemInt <- 2
 prior_logkBleachInt <- -1
@@ -174,7 +174,7 @@ priorSD_delay <- 1
 
 priorSD_sigma <- 0.05
 
-debug <- 1; #0 for no debug output, 1 for printing gen values, 2 for printing params
+debug <- 2; #0 for no debug output, 1 for printing gen values, 2 for printing params
 
 init_params <- list(list(logkChemInt=prior_logkChemInt,
                     logkBleachInt=prior_logkBleachInt,
@@ -186,7 +186,7 @@ init_params <- list(list(logkChemInt=prior_logkChemInt,
 init_params_4x <- rep(init_params,4)
 
 
-## ----format-sim-2-------------------------------------------------------------------------------------------------------
+## ----format-sim-2---------------------------------------------------------------------------------------------
 pred_stan_data_2 <- pred_stan_data
 # the same as the previous fit except for changing the priors
 
@@ -205,13 +205,13 @@ pred_stan_data_2$priorSD_delay <- priorSD_delay
 pred_stan_data_2$debug <- debug
 
 
-## ----fit-diff-priors----------------------------------------------------------------------------------------------------
+## ----fit-diff-priors------------------------------------------------------------------------------------------
 sim_fit_diff <- stan(file = stan_model,
              data = pred_stan_data_2, init = init_params_4x,
              chains = 4,iter = 2000)
 
 
-## ----posterior-plots-2--------------------------------------------------------------------------------------------------
+## ----posterior-plots-2----------------------------------------------------------------------------------------
 sim_fit_diff_posterior <- rstan::extract(sim_fit_diff)
 
 par(mfrow = c(2,2))
@@ -233,6 +233,92 @@ abline(v = prior_mBleach, col = 4, lty = 2)
 abline(v = target_mBleach, col = "red", lty = 2)
 
 
-## ----diagnostic-plots-2-------------------------------------------------------------------------------------------------
+## ----diagnostic-plots-2---------------------------------------------------------------------------------------
 traceplot(sim_fit_diff,pars=c("logkChemInt","logkBleachInt","mChem","mBleach"))
+
+
+## ----input-data-----------------------------------------------------------------------------------------------
+exp_data <- read_csv("NACAdata.csv")
+trial_nums <- exp_data$Trial
+exp_trial_starts <- match(unique(trial_nums),trial_nums)
+exp_trial_starts <- append(exp_trial_starts,length(trial_nums)+1)
+
+
+## ----format-exp-----------------------------------------------------------------------------------------------
+exp_stan_data <- stan_data
+# the same as before except for these changes
+exp_stan_data$N <- nrow(exp_data)
+exp_stan_data$time <- pull(exp_data,Time)
+exp_stan_data$gdn <- pull(exp_data,Gdn)
+exp_stan_data$absorbance <- exp_data %>%
+  mutate(Abs = if_else(Abs<=0,0.0001,Abs)) %>%
+  pull(Abs)
+exp_stan_data$numTrials <- length(exp_trial_starts)-1
+exp_stan_data$trialStarts <- exp_trial_starts
+
+
+## ----choose-priors-exp----------------------------------------------------------------------------------------
+prior_logkChemInt <- -2
+priorSD_logkChemInt <- 2
+prior_logkBleachInt <- -1
+priorSD_logkBleachInt <- 2
+prior_mChem <- -0.5
+priorSD_mChem <- 2
+prior_mBleach <- -2
+priorSD_mBleach <- 2
+prior_ext <- 0.01
+priorSD_ext <- 0.02
+prior_delay <- 5
+priorSD_delay <- 1
+
+priorSD_sigma <- 0.05
+
+debug <- 2; #0 for no debug output, 1 for printing gen values, 2 for printing params
+
+init_params <- list(list(logkChemInt=prior_logkChemInt,
+                    logkBleachInt=prior_logkBleachInt,
+                    mChem=prior_mChem,
+                    mBleach=prior_mBleach,
+                    ext=prior_ext,
+                    delay=prior_delay,
+                    sigma = 0.02))
+init_params_4x <- rep(init_params,4)
+
+exp_stan_data$prior_logkChemInt <- prior_logkChemInt
+exp_stan_data$priorSD_logkChemInt <- priorSD_logkChemInt
+exp_stan_data$prior_logkBleachInt <- prior_logkBleachInt
+exp_stan_data$priorSD_logkBleachInt <- priorSD_logkBleachInt
+exp_stan_data$prior_mChem <- prior_mChem
+exp_stan_data$priorSD_mChem <- priorSD_mChem
+exp_stan_data$prior_mBleach <- prior_mBleach
+exp_stan_data$priorSD_mBleach <- priorSD_mBleach
+exp_stan_data$prior_ext <- prior_ext
+exp_stan_data$priorSD_ext <- priorSD_ext
+exp_stan_data$prior_delay <- prior_delay
+exp_stan_data$priorSD_delay <- priorSD_delay
+
+
+## ----fit-exp--------------------------------------------------------------------------------------------------
+exp_fit <- stan(file = stan_model,
+             data = exp_stan_data, init = init_params_4x,
+             chains = 4,iter = 2000)
+
+
+## ----posterior-plots-exp--------------------------------------------------------------------------------------
+exp_fit_posterior <- rstan::extract(exp_fit)
+
+par(mfrow = c(2,2))
+
+plot(density(exp_fit_posterior$logkChemInt), main = "logkChemInt",xlim = c(-3.1,-1.9))
+abline(v = exp_stan_data$prior_logkChemInt, col = 4, lty = 2)
+plot(density(exp_fit_posterior$logkBleachInt), main = "logkBleachInt",xlim = c(-5,-0.9))
+abline(v = exp_stan_data$prior_logkBleachInt, col = 4, lty = 2)
+plot(density(exp_fit_posterior$mChem), main = "mChem",xlim = c(-0.2,0.06))
+abline(v = exp_stan_data$prior_mChem, col = 4, lty = 2)
+plot(density(exp_fit_posterior$mBleach), main = "mBleach",xlim = c(-5,0.12))
+abline(v = exp_stan_data$prior_mBleach, col = 4, lty = 2)
+
+
+## ----diagnostic-plots-exp-------------------------------------------------------------------------------------
+traceplot(exp_fit,pars=c("logkChemInt","logkBleachInt","mChem","mBleach"))
 
