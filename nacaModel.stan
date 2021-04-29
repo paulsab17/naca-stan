@@ -162,7 +162,7 @@ transformed parameters{
   
     predictedAbs[1] = 0;
   
-    if(debug==1 || debug==3) print("Start TP: ",predictedAbs);
+    if(debug==3) print("Start TP: ",predictedAbs);
     
     for(i in 1:numTrials){
       int start = trialStarts[i];
@@ -195,7 +195,8 @@ transformed parameters{
       }
     }
     
-    if(debug==1 || debug==3) print("End TP: ",predictedAbs);
+    if(debug==3) print("End TP: ",predictedAbs);
+    if(debug==1) print("Ran predictions");
 }
 
 model {
